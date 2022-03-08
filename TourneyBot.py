@@ -4,11 +4,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
-client = discord.Client()
+intents = discord.Intents.default()
+intents.members = True
+client = discord.Client(intents=intents)
 
+START_AMOUNT = 10
+FUNCTION_PRE = "!"
 win = "🏆"
 loss = "🏳️"
-
 players = {}
 matches = {}
 
@@ -21,7 +24,7 @@ def cleanAuthor(author):
 def save():
     file1 = open("data.txt", "w")
     for key in players:
-        file1.write(str(key) + "#" + str(players[key]))
+        file1.write(str(key) + "#" + str(players[key]) + "\n")
     file1.close()
 
 def load():
@@ -34,7 +37,20 @@ def load():
 async def on_ready():
     testFunc()
     load()
-    print("players" + str(players))
+    for guild in client.guilds:
+        for member in guild.members:
+            cleanedMembers = cleanAuthor(str(member))
+            if players.get(cleanedMembers) == None:
+                players[cleanedMembers] = START_AMOUNT
+                save()
+    #print("players" + str(players))
+
+@client.event
+async def on_member_join(member):
+    cleanedMembers = cleanAuthor(str(member))
+    if players.get(cleanedMembers) == None:
+        players[cleanedMembers] = START_AMOUNT
+        save()
 
 @client.event
 async def on_message(message):
@@ -43,34 +59,24 @@ async def on_message(message):
     if author == client.user:
         return
 
-    if messageContent == "!help":
+    if messageContent == FUNCTION_PRE + "help":
         await message.channel.send(
-        "!init \n"
-        "!viewWallet \n" +
-        "!giveMM (Name of recipient) (amount) \n" +
-        "!createBet"
+        FUNCTION_PRE + "viewWallet \n" +
+        FUNCTION_PRE + "giveMM (Name of recipient) (amount) \n" +
+        FUNCTION_PRE + "createBet"
         )
-    elif messageContent == "!init":
-        if not players.get(author) == None:
-            await message.reply("You are already initialized")
-            return
-
-        print(str(author) + " has been added")
-        players[author] = 10
-        save()
-    elif messageContent == "!createbet":
+    elif messageContent == FUNCTION_PRE + "createbet":
         await message.add_reaction(win)
         await message.add_reaction(loss)
         save()
-    elif messageContent == "!viewwallet":
+    elif messageContent == FUNCTION_PRE + "viewwallet":
         if players.get(author) == None:
             await message.reply("You need to initialize check !help")
             return
 
-        print(str(author) + " has " + str(players[author]) + " monkey money")
+        #print(str(author) + " has " + str(players[author]) + " monkey money")
         await message.reply(str(author) + " has " + str(players[author]) + " monkey money")  
-    elif messageContent.startswith("!givemm"):
-        print(message.content)
+    elif messageContent.startswith(FUNCTION_PRE + "givemm"):
         splitMessage = message.content.split(" ")
         if len(splitMessage) != 3:
             await message.reply("Not enough arguments check !help")
@@ -84,14 +90,18 @@ async def on_message(message):
         amount = int(splitMessage[2])
 
         if players.get(author) == None or players.get(recipient) == None:
-            await message.reply("Person does not exist or is not initalized")
+            await message.reply("Person does not exist")
+            return
+        
+        if author == recipient:
+            await message.reply("You can not give yourself monkey money")
             return
         
         if players[author] >= amount:
             await message.reply("You do not have enough monkey money")
             return
 
-        print(str(author) + " lost " + str(amount) + " and " + str(recipient) + " gained " + str(amount))
+        #print(str(author) + " lost " + str(amount) + " and " + str(recipient) + " gained " + str(amount))
         await message.reply(str(author) + " lost " + str(amount) + " and " + str(recipient) + " gained " + str(amount))
         players[author] - amount
         players[recipient] + amount
