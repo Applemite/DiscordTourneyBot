@@ -1,0 +1,1 @@
+node worker TourneyBot.py
