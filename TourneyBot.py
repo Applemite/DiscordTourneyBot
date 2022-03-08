@@ -6,7 +6,7 @@ load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 client = discord.Client()
 
-win = "✔️"
+win = "🏆"
 loss = "🏳️"
 
 players = {}
@@ -18,40 +18,84 @@ def testFunc():
 def cleanAuthor(author):
     return author[:-5]
 
+def save():
+    file1 = open("data.txt", "w")
+    for key in players:
+        file1.write(str(key) + "#" + str(players[key]))
+    file1.close()
+
+def load():
+    file1 = open("data.txt", "r")
+    for line in file1.readlines():
+        players[line.split("#")[0]] = int(line.split("#")[1])
+    file1.close()
+
 @client.event
 async def on_ready():
     testFunc()
+    load()
+    print("players" + str(players))
 
 @client.event
 async def on_message(message):
     author = cleanAuthor(str(message.author))
+    messageContent = message.content.lower()
     if author == client.user:
         return
 
-    if message.content == "!help".lower():
+    if messageContent == "!help":
         await message.channel.send(
         "!init \n"
         "!viewWallet \n" +
-        "!giveMM \n" +
+        "!giveMM (Name of recipient) (amount) \n" +
         "!createBet"
         )
-    elif message.content == "!init".lower():
-        if players.get(author) == None:
-            players[author] = 10
-            print(str(author) + " has been added")
-    elif message.content == "!createbet".lower():
+    elif messageContent == "!init":
+        if not players.get(author) == None:
+            await message.reply("You are already initialized")
+            return
+
+        print(str(author) + " has been added")
+        players[author] = 10
+        save()
+    elif messageContent == "!createbet":
         await message.add_reaction(win)
         await message.add_reaction(loss)
-    elif message.content == "!viewwallet".lower():
-        if not players.get(author) == None:
-            await message.reply(str(author) + " has " + str(players[author]) + " monkey money")
-    elif message.content == "!givemm":
-        recipient = message.content.split(" ")[1]
-        amount = message.content.split(" ")[2]
-        if not players.get(author) == None and not players.get(recipient) == None:
-            if players[author] >= amount:
-                players[author] - amount
-                players[recipient] + amount
+        save()
+    elif messageContent == "!viewwallet":
+        if players.get(author) == None:
+            await message.reply("You need to initialize check !help")
+            return
+
+        print(str(author) + " has " + str(players[author]) + " monkey money")
+        await message.reply(str(author) + " has " + str(players[author]) + " monkey money")  
+    elif messageContent.startswith("!givemm"):
+        print(message.content)
+        splitMessage = message.content.split(" ")
+        if len(splitMessage) != 3:
+            await message.reply("Not enough arguments check !help")
+            return
+
+        recipient = splitMessage[1]
+
+        if not splitMessage[2].isdigit():
+            await message.reply("Only positive numbers")
+            return
+        amount = int(splitMessage[2])
+
+        if players.get(author) == None or players.get(recipient) == None:
+            await message.reply("Person does not exist or is not initalized")
+            return
+        
+        if players[author] >= amount:
+            await message.reply("You do not have enough monkey money")
+            return
+
+        print(str(author) + " lost " + str(amount) + " and " + str(recipient) + " gained " + str(amount))
+        await message.reply(str(author) + " lost " + str(amount) + " and " + str(recipient) + " gained " + str(amount))
+        players[author] - amount
+        players[recipient] + amount
+        save()
 
 
 @client.event
